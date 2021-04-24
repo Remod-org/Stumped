@@ -1,0 +1,2 @@
+# Stumped
+Trees leave stumps!
