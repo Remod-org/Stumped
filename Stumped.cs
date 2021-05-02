@@ -27,7 +27,7 @@ using System.Collections.Generic;
 
 namespace Oxide.Plugins
 {
-    [Info("Stumped", "RFC1920", "1.0.1")]
+    [Info("Stumped", "RFC1920", "1.0.2")]
     [Description("Trees leave stumps!")]
     class Stumped : RustPlugin
     {
@@ -58,6 +58,7 @@ namespace Oxide.Plugins
 
         object OnDispenserBonus(ResourceDispenser dispenser, BasePlayer player, Item item)
         {
+            bool genstump = true;
             var tree = dispenser.GetComponentInParent<TreeEntity>();
             if (tree != null)
             {
@@ -66,12 +67,24 @@ namespace Oxide.Plugins
                     playerGathered.Add(player.userID, new HashSet<Stumps>());
                 }
 
-                var stump = GameManager.server.CreateEntity("assets/bundled/prefabs/autospawn/collectable/wood/wood-collectable.prefab", tree.transform.position, tree.transform.rotation);
-                NextTick(() =>
+                if ((configData.Options.stumpPercentChance >= 0.5f) && (configData.Options.stumpPercentChance < 100))
                 {
-                    stump.Spawn();
-                    playerGathered[player.userID].Add(new Stumps() { netid = stump.net.ID, chopped = DateTime.Now });
-                });
+                    genstump = false;
+                    System.Random random = new System.Random();
+                    if (random.Next(100) < Math.Abs(configData.Options.stumpPercentChance))
+                    {
+                        genstump = true;
+                    }
+                }
+                if (genstump)
+                {
+                    var stump = GameManager.server.CreateEntity("assets/bundled/prefabs/autospawn/collectable/wood/wood-collectable.prefab", tree.transform.position, tree.transform.rotation);
+                    NextTick(() =>
+                    {
+                        stump.Spawn();
+                        playerGathered[player.userID].Add(new Stumps() { netid = stump.net.ID, chopped = DateTime.Now });
+                    });
+                }
             }
             return null;
         }
@@ -111,6 +124,11 @@ namespace Oxide.Plugins
         {
             configData = Config.ReadObject<ConfigData>();
 
+            if (configData.Version < new VersionNumber(1, 0, 2))
+            {
+                configData.Options.stumpPercentChance = 100;
+            }
+
             configData.Version = Version;
             SaveConfig(configData);
         }
@@ -122,6 +140,7 @@ namespace Oxide.Plugins
                 Version = Version,
             };
             config.Options.protectedMinutes = 10;
+            config.Options.stumpPercentChance = 100;
 
             SaveConfig(config);
         }
@@ -138,6 +157,7 @@ namespace Oxide.Plugins
         private class Options
         {
             public int protectedMinutes;
+            public float stumpPercentChance;
         }
         #endregion
     }

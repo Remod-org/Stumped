@@ -10,7 +10,8 @@ This plugin requires no permission and saves no data long-term.
 ```json
 {
   "Options": {
-    "protectedMinutes": 10
+    "protectedMinutes": 10,
+    "stumpPercentChance": 100.0
   },
   "Version": {
     "Major": 1,
@@ -20,4 +21,7 @@ This plugin requires no permission and saves no data long-term.
 }
 ```
 
-The only config is above, protectedMinutes.  This sets the number of minutes after chopping down the tree before the chopPER can collect the stump.
+  - protectedMinutes --  This sets the number of minutes after chopping down the tree before the chopPER can collect the stump.
+  - stumpPercentChance -- A number between 1 (0.5) and 100.  This determines the chance of a stump being generated.
+    - Ignored if < 0.5 or equal to 100.
+	- Normally, this should be an integer such as 1 or 60 and from 1 to 99 to have any affect.
