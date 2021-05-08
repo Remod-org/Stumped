@@ -27,7 +27,7 @@ using System.Collections.Generic;
 
 namespace Oxide.Plugins
 {
-    [Info("Stumped", "RFC1920", "1.0.2")]
+    [Info("Stumped", "RFC1920", "1.0.3")]
     [Description("Trees leave stumps!")]
     class Stumped : RustPlugin
     {
@@ -52,12 +52,38 @@ namespace Oxide.Plugins
         {
             lang.RegisterMessages(new Dictionary<string, string>
             {
-                ["nogather"] = "You cannot gather this stump yet. {0} more minutes..."
+                ["nogather"] = "You cannot gather this stump yet. {0} more minutes...",
+                ["nogather1"] = "You cannot gather this stump yet. {0} more second(s)...",
+                ["nogather2"] = "You cannot gather this stump yet. {0} more minute(s)..."
             }, this);
+        }
+
+        object OnDispenserGather(ResourceDispenser dispenser, BaseEntity entity, Item item)
+        {
+            BasePlayer player = entity?.ToPlayer();
+            if (player == null) return null;
+
+            var tree = dispenser.GetComponentInParent<TreeEntity>();
+            if (tree != null)
+            {
+                if (playerGathered.ContainsKey(player.userID))
+                {
+                    foreach (Stumps stump in playerGathered[player.userID])
+                    {
+                        if (stump.netid == entity.net.ID)
+                        {
+                            //Puts("Blocking gather for this player.");
+                            return true;
+                        }
+                    }
+                }
+            }
+            return null;
         }
 
         object OnDispenserBonus(ResourceDispenser dispenser, BasePlayer player, Item item)
         {
+            // Possibly ineffective in avoiding users spamming E to get points in ZLevels, etc.
             bool genstump = true;
             var tree = dispenser.GetComponentInParent<TreeEntity>();
             if (tree != null)
@@ -98,13 +124,21 @@ namespace Oxide.Plugins
                 {
                     if (stump.netid == entity.net.ID)
                     {
-                        TimeSpan min = TimeSpan.FromMinutes(configData.Options.protectedMinutes);
-                        if (DateTime.Now - stump.chopped < min)
+                        TimeSpan sec = TimeSpan.FromSeconds(configData.Options.protectedMinutes * 60);
+                        if (DateTime.Now - stump.chopped < sec)
                         {
                             var endtime = stump.chopped + new TimeSpan(0, configData.Options.protectedMinutes, 0);
                             var towait = endtime - DateTime.Now;
+                            var seconds = Math.Floor(towait.TotalSeconds);
 
-                            Message(player.IPlayer, "nogather", towait.Minutes.ToString());
+                            if (seconds < 60)
+                            {
+                                Message(player.IPlayer, "nogather1", seconds.ToString());
+                            }
+                            else
+                            {
+                                Message(player.IPlayer, "nogather2", towait.Minutes.ToString());
+                            }
                             return true;
                         }
                         else
