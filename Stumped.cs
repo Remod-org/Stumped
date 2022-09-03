@@ -1,4 +1,4 @@
-﻿#region License (GPL v3)
+#region License (GPL v3)
 /*
     DESCRIPTION
     Copyright (c) 2021 RFC1920 <desolationoutpostpve@gmail.com>
@@ -27,9 +27,9 @@ using System.Collections.Generic;
 
 namespace Oxide.Plugins
 {
-    [Info("Stumped", "RFC1920", "1.0.3")]
+    [Info("Stumped", "RFC1920", "1.0.4")]
     [Description("Trees leave stumps!")]
-    class Stumped : RustPlugin
+    internal class Stumped : RustPlugin
     {
         private ConfigData configData;
         public Dictionary<ulong, HashSet<Stumps>> playerGathered = new Dictionary<ulong, HashSet<Stumps>>();
@@ -40,13 +40,13 @@ namespace Oxide.Plugins
             public DateTime chopped;
         }
 
-       #region Message
+        #region Message
         private string Lang(string key, string id = null, params object[] args) => string.Format(lang.GetMessage(key, this, id), args);
         private void Message(IPlayer player, string key, params object[] args) => player.Message(Lang(key, player.Id, args));
         #endregion
 
         #region hooks
-        void Loaded() => LoadConfigVariables();
+        private void Loaded() => LoadConfigVariables();
 
         protected override void LoadDefaultMessages()
         {
@@ -58,34 +58,31 @@ namespace Oxide.Plugins
             }, this);
         }
 
-        object OnDispenserGather(ResourceDispenser dispenser, BaseEntity entity, Item item)
+        private object OnDispenserGather(ResourceDispenser dispenser, BaseEntity entity, Item item)
         {
             BasePlayer player = entity?.ToPlayer();
             if (player == null) return null;
 
-            var tree = dispenser.GetComponentInParent<TreeEntity>();
-            if (tree != null)
+            TreeEntity tree = dispenser.GetComponentInParent<TreeEntity>();
+            if (tree != null && playerGathered.ContainsKey(player.userID))
             {
-                if (playerGathered.ContainsKey(player.userID))
+                foreach (Stumps stump in playerGathered[player.userID])
                 {
-                    foreach (Stumps stump in playerGathered[player.userID])
+                    if (stump.netid == entity.net.ID)
                     {
-                        if (stump.netid == entity.net.ID)
-                        {
-                            //Puts("Blocking gather for this player.");
-                            return true;
-                        }
+                        //Puts("Blocking gather for this player.");
+                        return true;
                     }
                 }
             }
             return null;
         }
 
-        object OnDispenserBonus(ResourceDispenser dispenser, BasePlayer player, Item item)
+        private object OnDispenserBonus(ResourceDispenser dispenser, BasePlayer player, Item item)
         {
             // Possibly ineffective in avoiding users spamming E to get points in ZLevels, etc.
             bool genstump = true;
-            var tree = dispenser.GetComponentInParent<TreeEntity>();
+            TreeEntity tree = dispenser.GetComponentInParent<TreeEntity>();
             if (tree != null)
             {
                 if (!playerGathered.ContainsKey(player.userID))
@@ -104,7 +101,7 @@ namespace Oxide.Plugins
                 }
                 if (genstump)
                 {
-                    var stump = GameManager.server.CreateEntity("assets/bundled/prefabs/autospawn/collectable/wood/wood-collectable.prefab", tree.transform.position, tree.transform.rotation);
+                    BaseEntity stump = GameManager.server.CreateEntity("assets/bundled/prefabs/autospawn/collectable/wood/wood-collectable.prefab", tree.transform.position, tree.transform.rotation);
                     NextTick(() =>
                     {
                         stump.Spawn();
@@ -115,7 +112,7 @@ namespace Oxide.Plugins
             return null;
         }
 
-        object OnCollectiblePickup(Item item, BasePlayer player, CollectibleEntity entity)
+        private object OnCollectiblePickup(CollectibleEntity entity, BasePlayer player)
         {
             // Block for player who chopped down the tree...
             if (playerGathered.ContainsKey(player.userID))
@@ -127,9 +124,9 @@ namespace Oxide.Plugins
                         TimeSpan sec = TimeSpan.FromSeconds(configData.Options.protectedMinutes * 60);
                         if (DateTime.Now - stump.chopped < sec)
                         {
-                            var endtime = stump.chopped + new TimeSpan(0, configData.Options.protectedMinutes, 0);
-                            var towait = endtime - DateTime.Now;
-                            var seconds = Math.Floor(towait.TotalSeconds);
+                            DateTime endtime = stump.chopped + new TimeSpan(0, configData.Options.protectedMinutes, 0);
+                            TimeSpan towait = endtime - DateTime.Now;
+                            double seconds = Math.Floor(towait.TotalSeconds);
 
                             if (seconds < 60)
                             {
@@ -166,18 +163,23 @@ namespace Oxide.Plugins
             configData.Version = Version;
             SaveConfig(configData);
         }
+
         protected override void LoadDefaultConfig()
         {
             Puts("Creating new config file.");
-            var config = new ConfigData
+            ConfigData config = new ConfigData
             {
-                Version = Version,
+                Options = new Options()
+                {
+                    protectedMinutes = 10,
+                    stumpPercentChance = 100
+                },
+                Version = Version
             };
-            config.Options.protectedMinutes = 10;
-            config.Options.stumpPercentChance = 100;
 
             SaveConfig(config);
         }
+
         private void SaveConfig(ConfigData config)
         {
             Config.WriteObject(config, true);
@@ -185,10 +187,11 @@ namespace Oxide.Plugins
 
         private class ConfigData
         {
-            public Options Options = new Options();
+            public Options Options;
             public VersionNumber Version;
         }
-        private class Options
+
+        public class Options
         {
             public int protectedMinutes;
             public float stumpPercentChance;
