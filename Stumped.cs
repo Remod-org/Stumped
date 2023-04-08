@@ -1,12 +1,12 @@
-#region License (GPL v3)
+#region License (GPL v2)
 /*
-    DESCRIPTION
-    Copyright (c) 2021 RFC1920 <desolationoutpostpve@gmail.com>
+    Stumped! Trees leave stumps when chopped down.
+    Copyright (c) 2020-2023 RFC1920 <desolationoutpostpve@gmail.com>
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
-    as published by the Free Software Foundation; either version 2
-    of the License, or (at your option) any later version.
+    as published by the Free Software Foundation; version 2
+    of the License only.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,7 +19,7 @@
 
     Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
-#endregion License Information (GPL v3)
+#endregion License (GPL v2)
 using Oxide.Core;
 using Oxide.Core.Libraries.Covalence;
 using System;
@@ -27,12 +27,13 @@ using System.Collections.Generic;
 
 namespace Oxide.Plugins
 {
-    [Info("Stumped", "RFC1920", "1.0.4")]
+    [Info("Stumped", "RFC1920", "1.0.5")]
     [Description("Trees leave stumps!")]
     internal class Stumped : RustPlugin
     {
         private ConfigData configData;
         public Dictionary<ulong, HashSet<Stumps>> playerGathered = new Dictionary<ulong, HashSet<Stumps>>();
+        private bool initialized;
 
         public class Stumps
         {
@@ -48,6 +49,11 @@ namespace Oxide.Plugins
         #region hooks
         private void Loaded() => LoadConfigVariables();
 
+        private void OnServerInitialized()
+        {
+            initialized = true;
+        }
+
         protected override void LoadDefaultMessages()
         {
             lang.RegisterMessages(new Dictionary<string, string>
@@ -60,6 +66,7 @@ namespace Oxide.Plugins
 
         private object OnDispenserGather(ResourceDispenser dispenser, BaseEntity entity, Item item)
         {
+            if (!initialized) return null;
             BasePlayer player = entity?.ToPlayer();
             if (player == null) return null;
 
@@ -80,6 +87,7 @@ namespace Oxide.Plugins
 
         private object OnDispenserBonus(ResourceDispenser dispenser, BasePlayer player, Item item)
         {
+            if (!initialized) return null;
             // Possibly ineffective in avoiding users spamming E to get points in ZLevels, etc.
             bool genstump = true;
             TreeEntity tree = dispenser.GetComponentInParent<TreeEntity>();
@@ -114,11 +122,17 @@ namespace Oxide.Plugins
 
         private object OnCollectiblePickup(CollectibleEntity entity, BasePlayer player)
         {
+            if (!initialized) return null;
+            if (entity?.net.ID == 0) return null;
+            if (player == null) return null;
+            if (!player.isMounted) return null;
+
             // Block for player who chopped down the tree...
             if (playerGathered.ContainsKey(player.userID))
             {
                 foreach (Stumps stump in playerGathered[player.userID])
                 {
+                    if (stump?.netid== 0) continue;
                     if (stump.netid == entity.net.ID)
                     {
                         TimeSpan sec = TimeSpan.FromSeconds(configData.Options.protectedMinutes * 60);
