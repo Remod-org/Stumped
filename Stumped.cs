@@ -27,7 +27,7 @@ using System.Collections.Generic;
 
 namespace Oxide.Plugins
 {
-    [Info("Stumped", "RFC1920", "1.0.5")]
+    [Info("Stumped", "RFC1920", "1.0.6")]
     [Description("Trees leave stumps!")]
     internal class Stumped : RustPlugin
     {
@@ -75,7 +75,7 @@ namespace Oxide.Plugins
             {
                 foreach (Stumps stump in playerGathered[player.userID])
                 {
-                    if (stump.netid == entity.net.ID)
+                    if (stump.netid == entity.net.ID.Value)
                     {
                         //Puts("Blocking gather for this player.");
                         return true;
@@ -113,7 +113,7 @@ namespace Oxide.Plugins
                     NextTick(() =>
                     {
                         stump.Spawn();
-                        playerGathered[player.userID].Add(new Stumps() { netid = stump.net.ID, chopped = DateTime.Now });
+                        playerGathered[player.userID].Add(new Stumps() { netid = stump.net.ID.Value, chopped = DateTime.Now });
                     });
                 }
             }
@@ -123,7 +123,7 @@ namespace Oxide.Plugins
         private object OnCollectiblePickup(CollectibleEntity entity, BasePlayer player)
         {
             if (!initialized) return null;
-            if (entity?.net.ID == 0) return null;
+            if (entity?.net.ID.Value == 0) return null;
             if (player == null) return null;
             if (!player.isMounted) return null;
 
@@ -133,7 +133,7 @@ namespace Oxide.Plugins
                 foreach (Stumps stump in playerGathered[player.userID])
                 {
                     if (stump?.netid== 0) continue;
-                    if (stump.netid == entity.net.ID)
+                    if (stump.netid == entity.net.ID.Value)
                     {
                         TimeSpan sec = TimeSpan.FromSeconds(configData.Options.protectedMinutes * 60);
                         if (DateTime.Now - stump.chopped < sec)
@@ -154,7 +154,7 @@ namespace Oxide.Plugins
                         }
                         else
                         {
-                            playerGathered[player.userID].RemoveWhere((x) => x.netid == entity.net.ID);
+                            playerGathered[player.userID].RemoveWhere((x) => x.netid == entity.net.ID.Value);
                             return null;
                         }
                     }
